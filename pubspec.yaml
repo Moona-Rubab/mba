@@ -1,0 +1,23 @@
+name: student_app
+description: Flutter Multi-Screen App Challenge — Registration, Login, Dashboard, Detail
+
+# The version of your app. Format: major.minor.patch+build_number
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # cupertino_icons gives us iOS-style icons (included by default)
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true  # Enables Material Icons
