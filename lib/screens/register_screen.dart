@@ -166,7 +166,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               // ---- Gender Dropdown ----
               _buildSectionLabel('Gender'),
               DropdownButtonFormField<Gender>(
-                value: _selectedGender,
+                initialValue: _selectedGender,
                 decoration: const InputDecoration(
                   prefixIcon: Icon(Icons.wc_outlined),
                 ),
