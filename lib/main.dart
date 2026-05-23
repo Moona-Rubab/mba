@@ -1,17 +1,30 @@
+// ============================================================
+//  main.dart  —  App Entry Point  (UPDATED for Part 2)
+//
+//  WHAT CHANGED FROM PART 1:
+//  - Imported CoursesScreen (no new named route needed — we use
+//    Navigator.push directly from DashboardScreen because
+//    CoursesScreen takes no arguments)
+//  - Everything else is identical to Part 1
+// ============================================================
+
 import 'package:flutter/material.dart';
 
 // Import the controller — needed so main.dart knows what 'Subject' is
 import 'controllers/auth_controller.dart';
 
-// Import all our screens
+// Import all screens
 import 'screens/register_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/detail_screen.dart';
+// CoursesScreen and AddEditCourseScreen are navigated to directly
+// via Navigator.push — no named route needed since they take no
+// route arguments that need to be unwrapped here.
 
 // This is the very first function Flutter calls when your app starts
 void main() {
-  runApp(const MyApp()); // Launches the MyApp widget
+  runApp(const MyApp());
 }
 
 // MyApp is the ROOT widget of our entire application
@@ -21,22 +34,22 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Student App', // App title (shown in task switcher)
-      debugShowCheckedModeBanner: false, // Removes the red "DEBUG" banner
+      title: 'Student App',
+      debugShowCheckedModeBanner: false,
 
       // --------------- APP THEME ---------------
-      // We define colors and font styles once here so every screen uses them
+      // Defined once here so every screen uses the same colors and styles
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1A237E), // Deep blue as brand color
+          seedColor: const Color(0xFF1A237E),
           brightness: Brightness.light,
         ),
-        useMaterial3: true, // Use the latest Material Design version
+        useMaterial3: true,
 
         // Default style for all TextFormField / TextField widgets
         inputDecorationTheme: InputDecorationTheme(
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12), // Rounded corners
+            borderRadius: BorderRadius.circular(12),
           ),
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
@@ -47,8 +60,8 @@ class MyApp extends StatelessWidget {
         // Default style for all ElevatedButton widgets
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF1A237E), // Deep blue
-            foregroundColor: Colors.white, // White text
+            backgroundColor: const Color(0xFF1A237E),
+            foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -62,28 +75,24 @@ class MyApp extends StatelessWidget {
       ),
 
       // --------------- NAMED ROUTES ---------------
-      // Named routes let us navigate using a simple string like '/login'
-      // instead of writing Navigator.push(...) with a full widget every time
-      initialRoute: '/register', // First screen the user sees
+      initialRoute: '/register',
 
       routes: {
         '/register': (context) => const RegisterScreen(),
         '/login': (context) => const LoginScreen(),
         '/dashboard': (context) => const DashboardScreen(),
-        // '/detail' is handled separately because it needs arguments (subject data)
+        // '/detail' is in onGenerateRoute below because it needs arguments
       },
 
-      // onGenerateRoute handles routes that need arguments
-      // The DetailScreen needs to know WHICH subject was tapped
+      // onGenerateRoute handles routes that need arguments passed to them
       onGenerateRoute: (settings) {
         if (settings.name == '/detail') {
-          // Cast the arguments to our Subject model
           final subject = settings.arguments as Subject;
           return MaterialPageRoute(
             builder: (context) => DetailScreen(subject: subject),
           );
         }
-        return null; // Return null for unknown routes
+        return null;
       },
     );
   }

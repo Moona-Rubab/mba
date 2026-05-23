@@ -1,10 +1,18 @@
 // ============================================================
-//  dashboard_screen.dart  —  Dashboard Screen
+//  dashboard_screen.dart  —  Dashboard Screen  (UPDATED for Part 2)
+//
+//  WHAT CHANGED FROM PART 1:
+//  A new "Courses (API)" button card has been added below the
+//  existing subjects list. Tapping it opens the CoursesScreen
+//  which connects to the JSONPlaceholder API.
+//
+//  Everything else is unchanged from Part 1.
 // ============================================================
 
 import 'package:flutter/material.dart';
 
 import '../controllers/auth_controller.dart';
+import '../screens/courses_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -58,9 +66,14 @@ class DashboardScreen extends StatelessWidget {
           // ---- User Profile Header ----
           _buildUserHeader(user.fullName),
 
+          // ---- API Courses Banner ----
+          // NEW in Part 2: a prominent button to navigate to the
+          // Courses screen which connects to the JSONPlaceholder API
+          _buildApiCoursesButton(context),
+
           // ---- Section Title ----
           const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             child: Row(
               children: [
                 Text(
@@ -144,6 +157,76 @@ class DashboardScreen extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  /// NEW — Banner button that navigates to the live API Courses screen
+  Widget _buildApiCoursesButton(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        // Navigator.push directly (no named route needed here since
+        // CoursesScreen does not need arguments)
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const CoursesScreen()),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          // Gradient makes it stand out from the plain subject cards
+          gradient: const LinearGradient(
+            colors: [Color(0xFF006064), Color(0xFF00838F)],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.teal.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.cloud_download_outlined,
+                  color: Colors.white, size: 26),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Courses  (Live API)',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'View, add, edit and delete via JSONPlaceholder',
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios,
+                color: Colors.white70, size: 16),
+          ],
+        ),
       ),
     );
   }

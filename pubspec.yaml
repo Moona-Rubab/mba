@@ -1,7 +1,6 @@
 name: student_app
-description: Flutter Multi-Screen App Challenge — Registration, Login, Dashboard, Detail
+description: Flutter Multi-Screen App — Part 2 CRUD API Integration
 
-# The version of your app. Format: major.minor.patch+build_number
 version: 1.0.0+1
 
 environment:
@@ -10,9 +9,13 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
-  # cupertino_icons gives us iOS-style icons (included by default)
   cupertino_icons: ^1.0.6
+
+  # ---- NEW in Part 2 ----
+  # The 'http' package lets Flutter make network requests (GET, POST, PUT, DELETE).
+  # Without this package, Flutter cannot talk to any REST API.
+  # After adding this, run:  flutter pub get
+  http: ^1.2.0
 
 dev_dependencies:
   flutter_test:
@@ -20,4 +23,4 @@ dev_dependencies:
   flutter_lints: ^3.0.0
 
 flutter:
-  uses-material-design: true  # Enables Material Icons
+  uses-material-design: true
