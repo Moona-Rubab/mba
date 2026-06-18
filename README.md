@@ -66,3 +66,5 @@ following are the screenshots:
 ![alt text](</screenshots/update course.png>)
 
 ![alt text](</screenshots/delete course.png>)
+
+![alt text](</screenshots/search course.png>)
