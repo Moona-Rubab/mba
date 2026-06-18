@@ -1,5 +1,5 @@
 name: student_app
-description: Flutter Multi-Screen App — Part 2 CRUD API Integration
+description: Flutter Multi-Screen App — Part 3 Offline Cache + State Management
 
 version: 1.0.0+1
 
@@ -11,11 +11,29 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.6
 
-  # ---- NEW in Part 2 ----
-  # The 'http' package lets Flutter make network requests (GET, POST, PUT, DELETE).
-  # Without this package, Flutter cannot talk to any REST API.
-  # After adding this, run:  flutter pub get
+  # ── Part 2 (kept) ──────────────────────────────────────────────
+  # http lets Flutter make network requests (GET, POST, PUT, DELETE)
   http: ^1.2.0
+
+  # ── Part 3 (new) ───────────────────────────────────────────────
+
+  # provider — State Management
+  # Instead of calling setState() manually in every screen,
+  # Provider lets us have a central "source of truth" (CourseProvider)
+  # that ALL screens listen to automatically.
+  # When data changes in the provider, every listening screen rebuilds.
+  provider: ^6.1.2
+
+  # hive_flutter — Local Storage
+  # Hive is a fast key-value database that stores data on the device.
+  # We use it to save courses locally so the app works offline.
+  # hive_flutter is hive + Flutter helpers (like Hive.initFlutter())
+  hive_flutter: ^1.1.0
+
+  # connectivity_plus — Network Detection
+  # Tells us whether the device currently has an internet connection.
+  # The repository uses this to decide: "fetch from API or load from Hive?"
+  connectivity_plus: ^6.0.3
 
 dev_dependencies:
   flutter_test:

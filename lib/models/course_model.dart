@@ -1,35 +1,33 @@
 // ============================================================
-//  course_model.dart  —  Course Data Model
+//  course_model.dart  —  Course Data Model  (UPDATED for Part 3)
 //
-//  WHAT IS A MODEL?
-//  A model is a plain Dart class that represents one piece of data.
-//  It knows nothing about the UI or network — it just holds fields.
+//  WHAT CHANGED FROM PART 2:
+//  We added Hive support so CourseModel can be stored on-device.
 //
-//  WHY DO WE NEED THIS?
-//  The JSONPlaceholder API returns data as JSON, which looks like this:
-//  {
-//    "id": 1,
-//    "title": "Flutter Basics",
-//    "body": "Learn widgets and state management",
-//    "userId": 1
-//  }
-//  We convert that raw JSON into a CourseModel object so the rest of
-//  the app can work with typed Dart objects instead of raw Maps.
+//  HOW HIVE STORES DATA:
+//  Hive is a key-value database. It stores Dart objects as
+//  binary data on disk. To store a custom class like CourseModel,
+//  Hive needs to know how to convert it to/from binary.
+//
+//  We do this manually using a TypeAdapter — a class that tells
+//  Hive exactly how to read and write each field.
+//  We write the adapter ourselves (HiveCourseAdapter below) to
+//  keep things beginner-friendly without needing code generation.
+//
+//  HIVE CONCEPTS:
+//  - Box     = like a table in a database, or a named file
+//  - typeId  = a unique number identifying this type to Hive (0-223)
+//  - adapter = the converter class that reads/writes the object
 // ============================================================
 
+import 'package:hive_flutter/hive_flutter.dart';
+
 class CourseModel {
-  // ---- Fields ----
-  // These match the keys coming from the JSONPlaceholder /posts endpoint.
-  // 'id' can be null for a NEW course that hasn't been saved yet
-  // (the server assigns the id after creation).
   final int? id;
   final String title;
-  final String body; // JSONPlaceholder calls the description 'body'
-  final int userId; // which user this course belongs to
+  final String body;
+  final int userId;
 
-  // ---- Constructor ----
-  // 'required' means the caller MUST provide these values.
-  // 'id' is NOT required because a new course has no id yet.
   CourseModel({
     this.id,
     required this.title,
@@ -37,46 +35,26 @@ class CourseModel {
     required this.userId,
   });
 
-  // ---- fromJson ----
-  // A named constructor (factory) that builds a CourseModel from a Map.
-  //
-  // WHY factory?
-  // 'factory' means this constructor can return an existing instance or
-  // do custom work before creating the object. It is the standard pattern
-  // for JSON parsing in Dart.
-  //
-  // The Map<String, dynamic> type means:
-  //   - Keys are Strings (the JSON field names like "id", "title")
-  //   - Values are dynamic (could be int, String, bool, null — we don't
-  //     know until runtime)
+  // ---- fromJson — build from API response ----
   factory CourseModel.fromJson(Map<String, dynamic> json) {
     return CourseModel(
-      id: json['id'], // int or null
-      title: json['title'], // String
-      body: json['body'], // String
-      userId: json['userId'], // int
+      id: json['id'],
+      title: json['title'],
+      body: json['body'],
+      userId: json['userId'],
     );
   }
 
-  // ---- toJson ----
-  // Converts this CourseModel back into a Map so we can send it to the API.
-  // Used when doing POST (create) and PUT (update) requests.
+  // ---- toJson — convert to Map for API requests ----
   Map<String, dynamic> toJson() {
     return {
       'title': title,
       'body': body,
       'userId': userId,
-      // We do NOT include 'id' here — the server controls the id
     };
   }
 
-  // ---- copyWith ----
-  // Creates a new CourseModel with some fields changed.
-  // This is a common Dart pattern — because our fields are 'final'
-  // (immutable), we cannot change them directly. copyWith gives us
-  // a new object with the updated values.
-  //
-  // Example: course.copyWith(title: 'New Title')
+  // ---- copyWith — create updated copy without mutating original ----
   CourseModel copyWith({
     int? id,
     String? title,
@@ -84,11 +62,53 @@ class CourseModel {
     int? userId,
   }) {
     return CourseModel(
-      // ?? means: use the new value if provided, otherwise keep the old one
       id: id ?? this.id,
       title: title ?? this.title,
       body: body ?? this.body,
       userId: userId ?? this.userId,
     );
+  }
+}
+
+// ============================================================
+//  HiveCourseAdapter  —  Teaches Hive how to store CourseModel
+//
+//  WHY WRITE THIS MANUALLY?
+//  Normally you would use code generation (hive_generator package)
+//  to auto-create this. But code generation requires extra setup
+//  steps (build_runner, annotations) that are confusing for beginners.
+//  Writing it manually is more lines but much easier to understand.
+//
+//  TypeAdapter<T> is a Hive class we extend.
+//  T = the type we are teaching Hive about = CourseModel
+// ============================================================
+class HiveCourseAdapter extends TypeAdapter<CourseModel> {
+  // typeId must be unique across all adapters in your app.
+  // We use 0 since this is our only custom type.
+  @override
+  final int typeId = 0;
+
+  // ---- read — Hive calls this when LOADING a CourseModel from disk ----
+  // BinaryReader reads the binary data field by field, IN ORDER.
+  // The order here MUST match the order in write() below.
+  @override
+  CourseModel read(BinaryReader reader) {
+    return CourseModel(
+      id: reader.readInt(), // field 0
+      title: reader.readString(), // field 1
+      body: reader.readString(), // field 2
+      userId: reader.readInt(), // field 3
+    );
+  }
+
+  // ---- write — Hive calls this when SAVING a CourseModel to disk ----
+  // BinaryWriter converts each field to binary.
+  // The order here MUST match the order in read() above.
+  @override
+  void write(BinaryWriter writer, CourseModel obj) {
+    writer.writeInt(obj.id ?? 0); // field 0 — write 0 if id is null
+    writer.writeString(obj.title); // field 1
+    writer.writeString(obj.body); // field 2
+    writer.writeInt(obj.userId); // field 3
   }
 }

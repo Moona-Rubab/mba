@@ -1,24 +1,35 @@
 // ============================================================
-//  courses_screen.dart  —  Courses Screen (CRUD List)
+//  courses_screen.dart  —  Courses Screen  (UPDATED for Part 3)
 //
-//  This screen:
-//    - Fetches courses from the API when it first opens (Read)
-//    - Shows a loading spinner while fetching
-//    - Shows an error message if the fetch fails
-//    - Shows the list of courses when data arrives
-//    - Each course card has Edit and Delete buttons
-//    - A FAB (Floating Action Button) opens the Add Course form
+//  WHAT CHANGED FROM PART 2:
+//  - Removed: courseController.onStateChanged callback
+//  - Removed: manual setState() calls everywhere
+//  - Added:   context.watch<CourseProvider>() — auto-rebuilds
+//  - Added:   pull-to-refresh (RefreshIndicator)
+//  - Added:   search bar with real-time filtering
+//  - Added:   offline banner when serving cached data
 //
-//  LIFECYCLE NOTE:
-//  We use initState() to trigger the API call when the screen opens.
-//  initState() runs ONCE when the widget is inserted into the tree —
-//  it is the right place to kick off initial data loading.
+//  HOW PROVIDER WORKS IN THIS SCREEN:
+//
+//  context.watch<CourseProvider>()
+//  → Subscribes this widget to CourseProvider
+//  → Every time notifyListeners() is called in the provider,
+//    this widget's build() method is called again automatically
+//  → No manual setState() needed anywhere
+//
+//  context.read<CourseProvider>()
+//  → Gets the provider WITHOUT subscribing
+//  → Used inside callbacks (onPressed, onTap) where we just
+//    want to call a method, not listen for changes
+//  → Using .watch() inside a callback would be wrong because
+//    callbacks run outside the build method
 // ============================================================
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-import '../controllers/course_controller.dart';
 import '../models/course_model.dart';
+import '../providers/course_provider.dart';
 import 'add_edit_course_screen.dart';
 
 class CoursesScreen extends StatefulWidget {
@@ -29,80 +40,74 @@ class CoursesScreen extends StatefulWidget {
 }
 
 class _CoursesScreenState extends State<CoursesScreen> {
-  // ----------------------------------------------------------------
-  //  initState — runs once when the widget first appears
-  // ----------------------------------------------------------------
+  // Search controller — tracks what the user types in the search bar
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
   @override
   void initState() {
-    super.initState(); // always call super first
+    super.initState();
 
-    // Register our rebuild callback on the controller.
-    // When the controller calls _notify(), it will call this function,
-    // which calls setState() and re-draws the screen.
-    courseController.onStateChanged = () {
-      // mounted checks that the widget is still in the tree.
-      // It can happen that an API response arrives AFTER the user
-      // has already navigated away — calling setState() on a widget
-      // that is no longer on screen would crash the app.
-      if (mounted) setState(() {});
-    };
-
-    // Fetch courses immediately when the screen opens.
-    // We do not await here — fetchCourses() runs in the background
-    // and calls onStateChanged when done, which triggers rebuild.
-    courseController.fetchCourses();
+    // Fetch courses when screen opens.
+    // context.read() is used here (not watch) because initState()
+    // runs outside the build method.
+    // addPostFrameCallback ensures the first frame is drawn before
+    // we trigger a state change — avoids a "called during build" error
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<CourseProvider>().fetchCourses();
+    });
   }
 
-  // ----------------------------------------------------------------
-  //  dispose — runs when widget is removed from the tree
-  // ----------------------------------------------------------------
   @override
   void dispose() {
-    // Clear the callback so the controller does not call setState()
-    // on a widget that no longer exists.
-    courseController.onStateChanged = null;
+    _searchController.dispose();
     super.dispose();
   }
 
   // ----------------------------------------------------------------
-  //  DELETE HANDLER — shows confirmation dialog first
+  //  DELETE with confirmation dialog
   // ----------------------------------------------------------------
   Future<void> _onDeletePressed(CourseModel course) async {
-    // showDialog returns whatever value the dialog passes to Navigator.pop()
-    // We use it as a confirmation result (true = confirmed, false = cancelled)
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Course'),
         content: Text(
-          'Are you sure you want to delete "${course.title}"?\n'
+          'Are you sure you want to delete "${course.title}"?\n\n'
           'This action cannot be undone.',
         ),
         actions: [
-          // Cancel button
           TextButton(
-            onPressed: () => Navigator.pop(context, false), // returns false
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),
-          // Confirm delete button
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.pop(context, true), // returns true
+            onPressed: () => Navigator.pop(context, true),
             child: const Text('Delete'),
           ),
         ],
       ),
     );
 
-    // If the dialog was dismissed (back button) confirmed will be null
-    // confirmed == true means the user pressed the Delete button
-    if (confirmed == true && course.id != null) {
-      final success = await courseController.deleteCourse(course.id!);
+    if (confirmed == true && course.id != null && mounted) {
+      // context.read — we are inside a callback, not build()
+      final success =
+          await context.read<CourseProvider>().deleteCourse(course.id!);
+
       if (!success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: ${courseController.errorMessage}'),
+            content: Text(context.read<CourseProvider>().errorMessage),
             backgroundColor: Colors.red,
+          ),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Course deleted'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
           ),
         );
       }
@@ -110,10 +115,9 @@ class _CoursesScreenState extends State<CoursesScreen> {
   }
 
   // ----------------------------------------------------------------
-  //  NAVIGATE TO ADD COURSE
+  //  NAVIGATE TO ADD
   // ----------------------------------------------------------------
   void _onAddPressed() {
-    // We pass null as the course argument to signal "Add new" mode
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -123,10 +127,9 @@ class _CoursesScreenState extends State<CoursesScreen> {
   }
 
   // ----------------------------------------------------------------
-  //  NAVIGATE TO EDIT COURSE
+  //  NAVIGATE TO EDIT
   // ----------------------------------------------------------------
   void _onEditPressed(CourseModel course) {
-    // We pass the existing course to pre-fill the form fields
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -140,6 +143,10 @@ class _CoursesScreenState extends State<CoursesScreen> {
   // ----------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
+    // context.watch() subscribes to CourseProvider
+    // Every time notifyListeners() is called, build() runs again
+    final provider = context.watch<CourseProvider>();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Courses'),
@@ -147,22 +154,32 @@ class _CoursesScreenState extends State<CoursesScreen> {
         foregroundColor: Colors.white,
         centerTitle: true,
         actions: [
-          // Refresh button — re-fetches the list from the API
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh',
-            onPressed: () => courseController.fetchCourses(),
+            // context.read inside onPressed — we don't need to listen here
+            onPressed: () => context.read<CourseProvider>().fetchCourses(),
           ),
         ],
       ),
+      body: Column(
+        children: [
+          // ---- Offline banner ----
+          // Shows when the user is viewing cached data (no internet)
+          if (provider.isOffline) _buildOfflineBanner(),
 
-      // ---- Body — switches between loading, error, and list ----
-      body: _buildBody(),
+          // ---- Search bar ----
+          // Only show when we have data to search through
+          if (provider.state == CourseState.success ||
+              provider.state == CourseState.empty)
+            _buildSearchBar(),
 
-      // ---- FAB — Floating Action Button to add a new course ----
-      // The FAB is hidden while loading to prevent double-tapping
-      floatingActionButton: courseController.state == ApiState.loading
-          ? null // hide FAB while loading
+          // ---- Main content area ----
+          Expanded(child: _buildBody(provider)),
+        ],
+      ),
+      floatingActionButton: provider.state == CourseState.loading
+          ? null
           : FloatingActionButton.extended(
               onPressed: _onAddPressed,
               backgroundColor: const Color(0xFF1A237E),
@@ -176,25 +193,23 @@ class _CoursesScreenState extends State<CoursesScreen> {
   }
 
   // ----------------------------------------------------------------
-  //  BODY BUILDER — decides what to show based on current ApiState
+  //  BODY — switches between states
   // ----------------------------------------------------------------
-  Widget _buildBody() {
-    switch (courseController.state) {
-      // ---- Loading state ----
-      case ApiState.loading:
+  Widget _buildBody(CourseProvider provider) {
+    switch (provider.state) {
+      case CourseState.loading:
         return const Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               CircularProgressIndicator(),
               SizedBox(height: 16),
-              Text('Fetching courses from API...'),
+              Text('Fetching courses...'),
             ],
           ),
         );
 
-      // ---- Error state ----
-      case ApiState.error:
+      case CourseState.error:
         return Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -204,12 +219,12 @@ class _CoursesScreenState extends State<CoursesScreen> {
                 const Icon(Icons.wifi_off, size: 64, color: Colors.grey),
                 const SizedBox(height: 16),
                 const Text(
-                  'Failed to load courses',
+                  'Could not load courses',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  courseController.errorMessage,
+                  provider.errorMessage,
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: Colors.grey),
                 ),
@@ -217,50 +232,127 @@ class _CoursesScreenState extends State<CoursesScreen> {
                 ElevatedButton.icon(
                   icon: const Icon(Icons.refresh),
                   label: const Text('Retry'),
-                  onPressed: () => courseController.fetchCourses(),
+                  onPressed: () =>
+                      context.read<CourseProvider>().fetchCourses(),
                 ),
               ],
             ),
           ),
         );
 
-      // ---- Success / Idle state — show the list ----
-      case ApiState.success:
-      case ApiState.idle:
-        if (courseController.courses.isEmpty) {
-          // Empty state — no courses yet
-          return const Center(
+      case CourseState.empty:
+        return const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.school_outlined, size: 64, color: Colors.grey),
+              SizedBox(height: 16),
+              Text(
+                'No courses yet.',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 8),
+              Text('Tap + Add Course to create one.'),
+            ],
+          ),
+        );
+
+      case CourseState.success:
+      case CourseState.idle:
+        // Get filtered list based on current search query
+        final displayList = provider.searchCourses(_searchQuery);
+
+        if (displayList.isEmpty && _searchQuery.isNotEmpty) {
+          // Search returned nothing
+          return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.school_outlined, size: 64, color: Colors.grey),
-                SizedBox(height: 16),
-                Text('No courses yet. Tap + to add one.'),
+                const Icon(Icons.search_off, size: 64, color: Colors.grey),
+                const SizedBox(height: 16),
+                Text('No courses matching "$_searchQuery"'),
               ],
             ),
           );
         }
-        // Non-empty — show the list
-        return _buildCourseList();
+
+        // ---- RefreshIndicator ----
+        // Wrapping the list with RefreshIndicator adds pull-to-refresh.
+        // When the user pulls down, onRefresh is called.
+        return RefreshIndicator(
+          onRefresh: () => context.read<CourseProvider>().fetchCourses(),
+          color: const Color(0xFF1A237E),
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: displayList.length,
+            itemBuilder: (context, index) {
+              return _buildCourseCard(displayList[index]);
+            },
+          ),
+        );
     }
   }
 
   // ----------------------------------------------------------------
-  //  COURSE LIST
+  //  OFFLINE BANNER
   // ----------------------------------------------------------------
-  Widget _buildCourseList() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: courseController.courses.length,
-      itemBuilder: (context, index) {
-        final course = courseController.courses[index];
-        return _buildCourseCard(course);
-      },
+  Widget _buildOfflineBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: Colors.orange.shade700,
+      child: const Row(
+        children: [
+          Icon(Icons.wifi_off, color: Colors.white, size: 18),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'You are offline. Showing cached data.',
+              style: TextStyle(color: Colors.white, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   // ----------------------------------------------------------------
-  //  SINGLE COURSE CARD
+  //  SEARCH BAR
+  // ----------------------------------------------------------------
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: TextField(
+        controller: _searchController,
+        decoration: InputDecoration(
+          hintText: 'Search courses...',
+          prefixIcon: const Icon(Icons.search),
+          // Show clear button only when there is text
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => _searchQuery = '');
+                  },
+                )
+              : null,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+        ),
+        onChanged: (value) {
+          // This is the one place we still use setState() in Part 3 —
+          // it is for LOCAL widget state (the search query string) that
+          // does not need to be shared with any other widget.
+          // Provider is for SHARED state; local widget state is fine with setState.
+          setState(() => _searchQuery = value);
+        },
+      ),
+    );
+  }
+
+  // ----------------------------------------------------------------
+  //  COURSE CARD
   // ----------------------------------------------------------------
   Widget _buildCourseCard(CourseModel course) {
     return Card(
@@ -272,10 +364,9 @@ class _CoursesScreenState extends State<CoursesScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ---- Top row: ID badge + Title ----
+            // ---- ID badge + Title ----
             Row(
               children: [
-                // ID badge
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -295,7 +386,6 @@ class _CoursesScreenState extends State<CoursesScreen> {
                   ),
                 ),
                 const SizedBox(width: 10),
-                // Title — Flexible prevents overflow
                 Flexible(
                   child: Text(
                     course.title,
@@ -305,14 +395,13 @@ class _CoursesScreenState extends State<CoursesScreen> {
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    // ellipsis adds "..." if text is too long
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
 
-            // ---- Description (body) ----
+            // ---- Description ----
             Text(
               course.body,
               style: TextStyle(
@@ -325,11 +414,10 @@ class _CoursesScreenState extends State<CoursesScreen> {
             ),
             const SizedBox(height: 12),
 
-            // ---- Action buttons row ----
+            // ---- Action buttons ----
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                // Edit button
                 TextButton.icon(
                   icon: const Icon(Icons.edit_outlined, size: 18),
                   label: const Text('Edit'),
@@ -339,13 +427,10 @@ class _CoursesScreenState extends State<CoursesScreen> {
                   onPressed: () => _onEditPressed(course),
                 ),
                 const SizedBox(width: 8),
-                // Delete button
                 TextButton.icon(
                   icon: const Icon(Icons.delete_outline, size: 18),
                   label: const Text('Delete'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.red,
-                  ),
+                  style: TextButton.styleFrom(foregroundColor: Colors.red),
                   onPressed: () => _onDeletePressed(course),
                 ),
               ],
